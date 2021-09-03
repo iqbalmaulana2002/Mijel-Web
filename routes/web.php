@@ -44,6 +44,7 @@ Route::group(['middleware' => 'auth'], function () {
 
         Route::get('/admin/download/qr-code/{qr_code}', 'AdminController@downloadQrCode');
 
+        Route::post('/admin', 'AdminController@sedekahExport');
         Route::post('/admin/register', 'AdminController@register');
         Route::patch('/admin/edit-profile', 'ProfileController@update');
         Route::patch('/admin/konfirmasi/{penarikan}', 'AdminController@konfirmasiPenarikanTabungan');

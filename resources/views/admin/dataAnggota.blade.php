@@ -32,7 +32,7 @@
                             <tr>
                                 <td align="center">{{ $loop->iteration }}</td>
                                 <td>{{ $a->nama }}</td>
-                                <td>{{ $a->sedekah->last()->tanggal }}</td>
+                                <td>{{ $a->sedekah->last() ? $a->sedekah->last()->tanggal : 'Belum Pernah' }}</td>
                                 <td>{{ 'Rp. '.number_format($a->tabungan->saldo, 2, ",", ".") }}</td>
                                 <td>
                                     {!! $a->is_active ? "<span class='badge badge-success'>Aktif</span>" : "<span class='badge badge-danger'>Tidak Aktif</span>" !!}

@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use App\User;
 use App\Sedekah;
 use App\Tabungan;
 use App\Penarikan;
 use App\Penjemputan;
+use Illuminate\Http\Request;
+use App\Exports\SedekahExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Hash;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AdminController extends Controller
@@ -98,10 +100,11 @@ class AdminController extends Controller
         // Create tabungan untuk user baru yang levelnya anggota
         if ($request->level === 'anggota') {
             Tabungan::create([ 'user_id' => $user_id ]);
+
+            // Generate QR Code
+            QrCode::size(400)->generate('http://127.0.0.1:8000/petugas/sedekah/'.$request->nik, public_path('assets/qr_code/'.$qr_code));
         }
 
-        // Generate QR Code
-        QrCode::size(400)->generate('http://127.0.0.1:8000/petugas/sedekah/'.$request->nik, public_path('assets/qr_code/'.$qr_code));
 
         $level = $request->level == 'anggota' ? $request->level : 'petugas';
         return redirect('/admin/data/'.$level)->with('pesan', '<div class="alert alert-success">User baru berhasil ditambahkan</div>');
@@ -162,6 +165,127 @@ class AdminController extends Controller
         }
 
         return redirect('/admin/data/'.$level)->with('pesan', $pesan);
+    }
+
+    public function sedekahExport(Request $request)
+    {
+        $nik = $request->nik;
+        $awal = $request->tgl_awal;
+        $akhir = $request->tgl_akhir;
+
+        // Jika kosong semua
+        if (!$nik && !$awal && !$akhir) {
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->get();
+
+        // Jika niknya ada dan yang lainnya kosong
+        } elseif ($nik && !$awal && !$akhir) {
+            $user = User::where('nik', $nik)->first();
+            if (!$user) {
+                return redirect('/admin')->with('pesan', '<div class="alert alert-danger">User dengan NIK: '.$nik.' tidak ditemukan</div>');
+            }
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->where('user_id', $user->id)
+                            ->get();
+
+        // Jika tanggal awalnya ada dan yang lainnya kosong
+        } elseif (!$nik && $awal && !$akhir) {
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->whereDate('tanggal', '>=', $awal)
+                            ->get();
+
+        // Jika tanggal akhirnya ada dan yang lainnya kosong
+        } elseif (!$nik && !$awal && $akhir) {
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->whereDate('tanggal', '<=', $akhir)
+                            ->get();
+
+        // Jika nik dan tanggal awalnya ada dan tanggal akhirnya tidak ada
+        } elseif ($nik && $awal && !$akhir) {
+            $user = User::where('nik', $nik)->first();
+            if (!$user) {
+                return redirect('/admin')->with('pesan', '<div class="alert alert-danger">User dengan NIK: '.$nik.' tidak ditemukan</div>');
+            }
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->where('user_id', $user->id)
+                            ->whereDate('tanggal', '>=', $awal)
+                            ->get();
+
+        // Jika nik dan tanggal akhirnya ada dan tanggal awalnya tidak ada
+        } elseif ($nik && !$awal && $akhir) {
+            $user = User::where('nik', $nik)->first();
+            if (!$user) {
+                return redirect('/admin')->with('pesan', '<div class="alert alert-danger">User dengan NIK: '.$nik.' tidak ditemukan</div>');
+            }
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->where('user_id', $user->id)
+                            ->whereDate('tanggal', '<=', $akhir)
+                            ->get();
+
+        // Jika tanggal awal dan tanggal akhirnya ada dan niknya tidak ada
+        } elseif (!$nik && $awal && $akhir) {
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->whereBetween('tanggal', [$awal, $akhir])
+                            ->get();
+            dd($sedekah);
+
+        // Jika semuanya ada
+        } else {
+            $user = User::where('nik', $nik)->first();
+            if (!$user) {
+                return redirect('/admin')->with('pesan', '<div class="alert alert-danger">User dengan NIK: '.$nik.' tidak ditemukan</div>');
+            }
+            $sedekah = Sedekah::with([
+                                'user:id,nik,nama,jenkel,telp,alamat',
+                                'penjemputan:sedekah_id,petugas_id,tanggal,berangkat,sampai',
+                                'penjemputan.petugas:id,nama,telp'
+                            ])
+                            ->where('status', 'Selesai')
+                            ->where('user_id', $user->id)
+                            ->whereBetween('tanggal', [$awal, $akhir])
+                            ->get();
+        }
+
+        if ($sedekah->isEmpty()) {
+            return redirect('/admin/cetak/data/sedekah')->with('pesan', 'Data tidak ada, pastikan data yang anda masukan benar');
+        }
+
+        return new SedekahExport($sedekah);
     }
 
 }

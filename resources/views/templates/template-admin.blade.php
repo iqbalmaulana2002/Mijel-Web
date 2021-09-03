@@ -81,7 +81,7 @@
             <!-- Nav Item - Tables -->
             <li class="nav-item @yield('list-penarikan')">
                 <a class="nav-link" href="{{ url('/admin/list-penarikan') }}">
-                    <i class="fas fa-fw fa-shipping-fast"></i>
+                    <i class="fas fa-fw fa-comment-dollar"></i>
                     <span>List Penarikan Tabungan</span>
                 </a>
             </li>
